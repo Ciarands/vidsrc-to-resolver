@@ -44,7 +44,7 @@ class VidSrcExtractor:
         return unquote(decoded_text)
     
     def int_2_base(self, x, base) -> str:
-        charset = list("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/")
+        charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"
 
         if x < 0:
             sign = -1
@@ -110,13 +110,17 @@ class VidSrcExtractor:
     
     def handle_vidplay(self, url) -> str:
         key = self.encode_id(url.split('/e/')[1].split('?')[0])
+        subtitles_url = unquote(url.partition("?sub.info=")[-1].partition("&t=")[0])
         data = self.get_futoken(key, url)
+        
+        req_1 = requests.get(subtitles_url)
+        subtitles = {subtitle.get("label"): subtitle.get("file") for subtitle in req_1.json()}
 
-        req = requests.get(f"https://vidplay.site/mediainfo/{data}?{url.split('?')[1]}&autostart=true", headers={"Referer": url})
-        req_data = req.json()
+        req_2 = requests.get(f"https://vidplay.site/mediainfo/{data}?{url.split('?')[1]}&autostart=true", headers={"Referer": url})
+        req_2_data = req_2.json()
 
-        if type(req_data.get("result")) == dict:
-            return req_data.get("result").get("sources", [{}])[0].get("file")
+        if type(req_2_data.get("result")) == dict:
+            return req_2_data.get("result").get("sources"), subtitles
         return None
 
     def handle_filemoon(self, url) -> str:
@@ -141,7 +145,7 @@ class VidSrcExtractor:
         processed_matches[-1] = processed_matches[-1].split("|")
         unpacked = self.unpack(*processed_matches)
         hls_url = re.search(r'file:"([^"]*)"', unpacked).group(1)
-        return hls_url
+        return hls_url, None
         
 
     def get_source_url(self, source_id) -> str:
@@ -157,8 +161,13 @@ class VidSrcExtractor:
 
         return {video.get("title"): video.get("id") for video in data.get("result")}
 
-    def main(self, source_name, imdb) -> Optional[str]:
-        req = requests.get(f"https://vidsrc.to/embed/movie/{imdb}")
+    def get_vidsrc_stream(self, source_name, media_type, code, season, episode) -> Optional[str]:
+        url = f"https://vidsrc.to/embed/{media_type}/{code}"
+        if season and episode:
+            url += f"/{season}/{episode}"
+
+        print(f"Requesting {url}...")
+        req = requests.get(url)
         soup = BeautifulSoup(req.text, "html.parser")
 
         sources_code = soup.find('a', {'data-id': True}).get("data-id")
@@ -176,6 +185,23 @@ class VidSrcExtractor:
 
 if __name__ == "__main__":
     vsc = VidSrcExtractor()
-    video = vsc.main("Vidplay", "tt1300854")
-    if video:
-        os.system(f"mpv --fs \"{video}\"")
+    media_type = "movie" if input("Movie [0] / Show [1]: ") == "0" else "tv"
+    code = input("Input imdb/tmdb code: ")
+    se, ep = None, None
+
+    if media_type == "tv":
+        se = input("Input Season Number: ")
+        ep = input("Input Episode Number: ")
+
+    streams, subtitles = vsc.get_vidsrc_stream("Vidplay", media_type, code, se, ep)
+
+    if streams and type(streams) == list:
+        video = streams[0].get("file")
+        mpv_cmd = f"mpv --fs \"{video}\""
+
+        if subtitles:
+            print(list(subtitles.keys()))
+            subs = subtitles.get(input("Select Subtitles: "))
+            if subs:
+                mpv_cmd += f" --sub-file=\"{subs}\""
+        os.system(mpv_cmd)
