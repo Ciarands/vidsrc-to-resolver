@@ -17,6 +17,8 @@ class VidSrcExtractor:
     BASE_URL : str = "https://vidsrc.to"
     DEFAULT_KEY : str = "8z5Ag5wgagfsOuhz"
     PROVIDER_URL : str = "https://vidplay.online" # vidplay.site / vidplay.online / vidplay.lol
+    TMDB_BASE_URL : str = "https://www.themoviedb.org"
+    USER_AGENT : str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
 
     def __init__(self, **kwargs) -> None:
         self.source_name = kwargs.get("source_name")
@@ -93,53 +95,105 @@ class VidSrcExtractor:
             print(f"[NotImplemented] Sorry, this doesnt currently support {self.source_name} :(\n(if you message me and ask really nicely ill maybe look into reversing it though)...")
             return None, None
         
+    def query_tmdb(self, query: str) -> Dict:
+        req = requests.get(f"{self.TMDB_BASE_URL}/search", params={'query': query.replace(" ", "+").lower()}, headers={'user-agent': self.USER_AGENT})
+        soup = BeautifulSoup(req.text, "html.parser")
+        results = {}
+
+        for result in soup.find_all("div", {"class": "details"}):
+            data = result.find("a")
+            title = data.find()
+
+            if not title:
+                continue
+            
+            title = title.text
+            url = data.get("href")
+
+            if not url:
+                continue
+            
+            data_type, data_id = url[1:].split("/")
+            results.update({title: {"media_type": data_type, "tmdb_id": data_id}})
+
+        return results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="VidSrcExtractor Command Line Interface")
-    parser.add_argument("--source", dest="source_name", choices=SUPPORTED_SOURCES,
+    parser.add_argument("--source", "-src", dest="source_name", choices=SUPPORTED_SOURCES,
                         help="Specify the source name") 
-    parser.add_argument("--fetch-subtitles", dest="fetch_subtitles", action="store_true",
+    parser.add_argument("--search", "-s", dest="search_media", type=str,
+                        help="Query the tmdb website for content")
+    parser.add_argument("--fetch-subtitles", "-getsubs", dest="fetch_subtitles", action="store_true",
                         help="Specify if you want to fetch subtitles or not")
-    parser.add_argument("--default-subtitles", dest="default_subtitles", type=str,
+    parser.add_argument("--default-subtitles", "-lang", dest="default_subtitles", type=str,
                         help="Specify default subtitles")
-    parser.add_argument("--media-type", dest="media_type", choices=["movie", "tv"],
+    parser.add_argument("--media-type", "-type", dest="media_type", choices=["movie", "tv"],
                         help="Specify media type (movie or tv)")
-    parser.add_argument("--code", dest="code", type=str,
+    parser.add_argument("--media-id", "-id", dest="media_id", type=str,
                         help="Specify tmdb/imdb code to watch")
-    parser.add_argument("--season", dest="season", type=str,
+    parser.add_argument("--season", "-se", dest="season", type=str,
                         help="Specify the season number")
-    parser.add_argument("--episode", dest="episode", type=str,
+    parser.add_argument("--episode", "-ep", dest="episode", type=str,
                         help="Specify the episode number")
     args = parser.parse_args()
 
     source_name = args.source_name or questionary.select("Select Source", choices=SUPPORTED_SOURCES).ask()
-    fetch_subtitles = args.fetch_subtitles or questionary.confirm("Fetch Subtitles").ask() if source_name != "Filemoon" else None
+
+    fetch_subtitles = args.fetch_subtitles
+    if not fetch_subtitles:
+        if source_name == "Filemoon": # This source doesnt provide subtitles as of 31/12/2023
+            fetch_subtitles = False
+        elif args.default_subtitles:
+            fetch_subtitles = True
+        else:
+            fetch_subtitles = questionary.confirm("Fetch Subtitles").ask()
+
     vse = VidSrcExtractor(
         source_name = source_name,
         fetch_subtitles = fetch_subtitles,
     )
 
-    code = args.code 
-    while not code:
-        code = questionary.text("Input imdb/tmdb code").ask()
+    media_id = args.media_id
+    media_type = args.media_type
 
-    media_type = args.media_type or questionary.select("Select Media Type", choices=["Movie", "Tv"]).ask().lower()
+    if not args.media_id:
+        query = args.search_media or questionary.text("Search Media: ").ask()
+        search_results = vse.query_tmdb(query)
+
+        select_media = questionary.select("Select Media", choices=list(search_results.keys())).ask()
+        media_data = search_results.get(select_media)
+
+        media_id = media_data.get("tmdb_id")
+        media_type = media_data.get("media_type")
+
+    if not media_id:
+        media_id = questionary.text("Input imdb/tmdb code").ask()
+    
+    if not media_type:
+        media_type = questionary.select("Select Media Type", choices=["Movie", "Tv"]).ask().lower()
+
     se = args.season or questionary.text("Input Season Number").ask() if media_type == "tv" else None
     ep = args.episode or questionary.text("Input Episode Number").ask() if media_type == "tv" else None
-    streams, subtitles = vse.get_streams(media_type, code, se, ep)
+
+    streams, subtitles = vse.get_streams(media_type, media_id, se, ep)
 
     if streams and type(streams) == list:
         stream = streams[0]
         if len(streams) > 1:
             stream = questionary.select("Select Stream", choices=streams).ask()
 
-        mpv_cmd = f"mpv --fs \"{stream}\""
+        mpv_cmd = f"mpv --fs --msg-level=ffmpeg=no \"{stream}\""
 
         if subtitles:
             subtitle_list = list(subtitles.keys())
             subtitle_list.append("None")
+            selection = args.default_subtitles
             
-            selection = args.default_subtitles or questionary.select("(This can be skipped by passing --default-subtitles {subtitle_language})\n  Select Subtitles...", choices=subtitle_list).ask()
+            if not selection:
+                print("[>] This can be skipped by passing --default-subtitles {subtitle_language})")
+                selection = questionary.select("Select Subtitles...", choices=subtitle_list).ask()
+
             if selection != "None":
                 mpv_cmd += f" --sub-file=\"{subtitles.get(selection)}\""
 
