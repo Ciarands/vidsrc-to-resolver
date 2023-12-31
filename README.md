@@ -34,8 +34,8 @@ https://github.com/Ciarands/vidsrc-to-resolver/assets/74070993/ba277257-a043-4ed
 Will release soon™️, stay posted!
 
 ### TODO
-- [] Finish AST parser string reconstructor 
-- [] Add QoL features like autoplay 
+- [ ] Finish AST parser string reconstructor 
+- [ ] Add QoL features like autoplay 
 
 ### Note
 This is purely intended as proof of concept, the distribution of program is intended for educational purposes ONLY. 
