@@ -55,18 +55,22 @@ class VidSrcExtractor:
 
         print(f"[>] Requesting {url}...")
         req = requests.get(url)
-        soup = BeautifulSoup(req.text, "html.parser")
+        if req.status_code != 200:
+            print(f"[CouldntFetch] Couldnt fetch {req.url}, status code: {req.status_code}...")
+            return None, None
 
+        soup = BeautifulSoup(req.text, "html.parser")
         sources_code = soup.find('a', {'data-id': True})
         if not sources_code:
-            raise VidSrcError("Could not fetch data-id, this could be due to an invalid imdb/tmdb code...")
+            print("[NoSourceFound] Could not fetch data-id, this could be due to an invalid imdb/tmdb code...")
+            return None, None
 
         sources_code = sources_code.get("data-id")
         sources = self.get_sources(sources_code)
         source = sources.get(self.source_name)
         if not source:
             available_sources = ", ".join(list(sources.keys()))
-            print(f"\n[>] No source found for \"{self.source_name}\"\nAvailable Sources: {available_sources}")
+            print(f"[NoSourceFound] No source found for \"{self.source_name}\"\nAvailable Sources: {available_sources}")
             return None, None
 
         source_url = self.get_source_url(source)
@@ -111,7 +115,7 @@ if __name__ == "__main__":
     source_name = args.source_name or questionary.select("Select Source", choices=SUPPORTED_SOURCES).ask()
     fetch_subtitles = args.fetch_subtitles or questionary.confirm("Fetch Subtitles").ask() if source_name != "Filemoon" else None
     vse = VidSrcExtractor(
-        source_name = source_name, # @ ctrl + F "SUPPORTED_SOURCES"
+        source_name = source_name,
         fetch_subtitles = fetch_subtitles,
     )
 
