@@ -1,5 +1,5 @@
 # vidsrc-to-resolver
-Resolves m3u8 url for common sources found on https://vidsrc.to/
+A simple cli for fetching content from vidsrc.to by resolving m3u8's from common sources used by the site.
 
 ### Supports
 - vidplay.site (https://vidplay.site/)
@@ -11,16 +11,25 @@ Resolves m3u8 url for common sources found on https://vidsrc.to/
 
 ### Installation
 Download the repo
+
 ```git install https://github.com/Ciarands/vidsrc-to-resolver.git```
 
 Move into repo folder
+
 ```cd vidsrc-to-resolver```
 
 Download dependencies
-```pip install requirements.txt```
+
+```pip install -r requirements.txt```
 
 Run the file
+
 ```python3 vidsrc.py```
+
+### Usage
+
+For options run
+```python3 vidsrc.py --help```
 
 ### ~~Video~~
 *coming soon...*
@@ -36,6 +45,7 @@ Will release soon™️, stay posted!
 ### TODO
 - [ ] Finish AST parser string reconstructor 
 - [ ] Add QoL features like autoplay 
+- [ ] Add basic search functionality
 
 ### Note
 This is purely intended as proof of concept, the distribution of program is intended for educational purposes ONLY. 
