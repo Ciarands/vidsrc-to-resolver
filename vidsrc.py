@@ -1,207 +1,142 @@
 import os
-import re
-import base64
+import argparse
 import requests
+import questionary
 
-from typing import Optional
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
+from typing import Optional, Tuple, Dict, List
+
+from utils import Utilities, VidSrcError
+from sources.vidplay import VidplayExtractor
+from sources.filemoon import FilemoonExtractor
+
+SUPPORTED_SOURCES = ["Vidplay", "Filemoon"]
 
 class VidSrcExtractor:
-    def decode(self, str) -> bytearray:
-        key_bytes = bytes('8z5Ag5wgagfsOuhz', 'utf-8')
-        j = 0
-        s = bytearray(range(256))
+    BASE_URL : str = "https://vidsrc.to"
+    DEFAULT_KEY : str = "8z5Ag5wgagfsOuhz"
+    PROVIDER_URL : str = "https://vidplay.online" # vidplay.site / vidplay.online / vidplay.lol
 
-        for i in range(256):
-            j = (j + s[i] + key_bytes[i % len(key_bytes)]) & 0xff
-            s[i], s[j] = s[j], s[i]
+    def __init__(self, **kwargs) -> None:
+        self.source_name = kwargs.get("source_name")
+        self.fetch_subtitles = kwargs.get("fetch_subtitles")
 
-        decoded = bytearray(len(str))
-        i = 0
-        k = 0
-
-        for index in range(len(str)):
-            i = (i + 1) & 0xff
-            k = (k + s[i]) & 0xff
-            s[i], s[k] = s[k], s[i]
-            t = (s[i] + s[k]) & 0xff
-            decoded[index] = str[index] ^ s[t]
-
-        return decoded
-
-    def decode_base64_url_safe(self, s) -> bytearray:
-        standardized_input = s.replace('_', '/').replace('-', '+')
-        binary_data = base64.b64decode(standardized_input)
-
-        return bytearray(binary_data)
-
-    def decrypt_source_url(self, source_url) -> str:
-        encoded = self.decode_base64_url_safe(source_url)
-        decoded = self.decode(encoded)
+    def decrypt_source_url(self, source_url: str) -> str:
+        encoded = Utilities.decode_base64_url_safe(source_url)
+        decoded = Utilities.decode_data(self.DEFAULT_KEY, encoded)
         decoded_text = decoded.decode('utf-8')
 
         return unquote(decoded_text)
-    
-    def int_2_base(self, x, base) -> str:
-        charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"
 
-        if x < 0:
-            sign = -1
-        elif x == 0:
-            return 0
-        else:
-            sign = 1
+    def get_source_url(self, source_id: str) -> str:
+        req = requests.get(f"{self.BASE_URL}/ajax/embed/source/{source_id}")
+        if req.status_code != 200:
+            error_msg = f"Couldnt fetch {req.url}, status code: {req.status_code}..."
+            raise VidSrcError(error_msg)
 
-        x *= sign
-        digits = []
-
-        while x:
-            digits.append(charset[int(x % base)])
-            x = int(x / base)
-        
-        if sign < 0:
-            digits.append('-')
-        digits.reverse()
-
-        return ''.join(digits)
-    
-    def unpack(self, p, a, c, k, e=None, d=None) -> str:
-        for i in range(c-1, -1, -1):
-            if k[i]: p = re.sub("\\b"+self.int_2_base(i,a)+"\\b", k[i], p)
-        return p
-    
-    def key_permutation(self, key, data) -> str:
-        state = list(range(256))
-        index_1 = 0
-
-        for i in range(256):
-            index_1 = ((index_1 + state[i]) + ord(key[i % len(key)])) % 256
-            state[i], state[index_1] = state[index_1], state[i]
-
-        index_1 = index_2 = 0
-        final_key = ''
-
-        for char in range(len(data)):
-            index_1 = (index_1 + 1) % 256
-            index_2 = (index_2 + state[index_1]) % 256
-            state[index_1], state[index_2] = state[index_2], state[index_1]
-
-            if isinstance(data[char], str):
-                final_key += chr(ord(data[char]) ^ state[(state[index_1] + state[index_2]) % 256])
-            elif isinstance(data[char], int):
-                final_key += chr((data[char]) ^ state[(state[index_1] + state[index_2]) % 256])
-
-        return final_key
-    
-    def encode_id(self, v_id) -> str:
-        key1, key2 = requests.get('https://raw.githubusercontent.com/Claudemirovsky/worstsource-keys/keys/keys.json').json() # love u claude
-        decoded_id = self.key_permutation(key1, v_id).encode('Latin_1')
-        encoded_result = self.key_permutation(key2, decoded_id).encode('Latin_1')
-        encoded_base64 = base64.b64encode(encoded_result)
-
-        return encoded_base64.decode('utf-8').replace('/', '_')
-    
-    def get_futoken(self, key, url) -> str:
-        req = requests.get("https://vidplay.site/futoken", {"Referer": url})
-        fu_key = re.search(r"var\s+k\s*=\s*'([^']+)'", req.text).group(1)
-        
-        return f"{fu_key},{','.join([str(ord(fu_key[i % len(fu_key)]) + ord(key[i])) for i in range(len(key))])}"
-    
-    def handle_vidplay(self, url) -> str:
-        key = self.encode_id(url.split('/e/')[1].split('?')[0])
-        subtitles_url = unquote(url.partition("?sub.info=")[-1].partition("&t=")[0])
-        data = self.get_futoken(key, url)
-        
-        req_1 = requests.get(subtitles_url)
-        subtitles = {subtitle.get("label"): subtitle.get("file") for subtitle in req_1.json()}
-
-        req_2 = requests.get(f"https://vidplay.site/mediainfo/{data}?{url.split('?')[1]}&autostart=true", headers={"Referer": url})
-        req_2_data = req_2.json()
-
-        if type(req_2_data.get("result")) == dict:
-            return req_2_data.get("result").get("sources"), subtitles
-        return None
-
-    def handle_filemoon(self, url) -> str:
-        req = requests.get(url)
-        matches = re.search(r'return p}\((.+)\)', req.text)
-        processed_matches = []
-
-        if not matches:
-            raise Exception("No values found")
-        
-        split_matches = matches.group(1).split(",")
-        corrected_split_matches = [",".join(split_matches[:-3])] + split_matches[-3:]
-        
-        for val in corrected_split_matches:
-            val = val.strip()
-            val = val.replace(".split('|'))", "")
-            if val.isdigit() or (val[0] == "-" and val[1:].isdigit()):
-                processed_matches.append(int(val))
-            elif val[0] == "'" and val[-1] == "'":
-                processed_matches.append(val[1:-1])
-
-        processed_matches[-1] = processed_matches[-1].split("|")
-        unpacked = self.unpack(*processed_matches)
-        hls_url = re.search(r'file:"([^"]*)"', unpacked).group(1)
-        return hls_url, None
-        
-
-    def get_source_url(self, source_id) -> str:
-        req = requests.get(f"https://vidsrc.to/ajax/embed/source/{source_id}")
         data = req.json()
-
         encrypted_source_url = data.get("result", {}).get("url")
         return self.decrypt_source_url(encrypted_source_url)
 
-    def get_sources(self, data_id) -> dict:
-        req = requests.get(f"https://vidsrc.to/ajax/embed/episode/{data_id}/sources")
+    def get_sources(self, data_id: str) -> Dict:
+        req = requests.get(f"{self.BASE_URL}/ajax/embed/episode/{data_id}/sources")
+        if req.status_code != 200:
+            error_msg = f"Couldnt fetch {req.url}, status code: {req.status_code}..."
+            raise VidSrcError(error_msg)
+        
         data = req.json()
-
         return {video.get("title"): video.get("id") for video in data.get("result")}
 
-    def get_vidsrc_stream(self, source_name, media_type, code, season, episode) -> Optional[str]:
-        url = f"https://vidsrc.to/embed/{media_type}/{code}"
+    def get_streams(self, media_type: str, code: str, season: Optional[str], episode: Optional[str]) -> Tuple[Optional[List], Optional[str]]:
+        url = f"{self.BASE_URL}/embed/{media_type}/{code}"
         if season and episode:
             url += f"/{season}/{episode}"
 
-        print(f"Requesting {url}...")
+        print(f"[>] Requesting {url}...")
         req = requests.get(url)
         soup = BeautifulSoup(req.text, "html.parser")
 
-        sources_code = soup.find('a', {'data-id': True}).get("data-id")
+        sources_code = soup.find('a', {'data-id': True})
+        if not sources_code:
+            raise VidSrcError("Could not fetch data-id, this could be due to an invalid imdb/tmdb code...")
+
+        sources_code = sources_code.get("data-id")
         sources = self.get_sources(sources_code)
-        source = sources.get(source_name)
+        source = sources.get(self.source_name)
         if not source:
-            print(f"No source found for {source_name}")
-            return
+            available_sources = ", ".join(list(sources.keys()))
+            print(f"\n[>] No source found for \"{self.source_name}\"\nAvailable Sources: {available_sources}")
+            return None, None
 
         source_url = self.get_source_url(source)
         if "vidplay" in source_url:
-            return self.handle_vidplay(source_url)
+            print(f"[>] Fetching source for {self.source_name}...")
+
+            extractor = VidplayExtractor()
+            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=self.PROVIDER_URL)
+        
         elif "filemoon" in source_url:
-            return self.handle_filemoon(source_url)
+            print(f"[>] Fetching source for {self.source_name}...")
+
+            if self.fetch_subtitles: 
+                print(f"[NoSubtitles] \"{self.source_name}\" doesnt provide subtitles...")
+
+            extractor = FilemoonExtractor()
+            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=self.PROVIDER_URL)
+        
+        else:
+            print(f"[NotImplemented] Sorry, this doesnt currently support {self.source_name} :(\n(if you message me and ask really nicely ill maybe look into reversing it though)...")
+            return None, None
+        
 
 if __name__ == "__main__":
-    vsc = VidSrcExtractor()
-    media_type = "movie" if input("Movie [0] / Show [1]: ") == "0" else "tv"
-    code = input("Input imdb/tmdb code: ")
-    se, ep = None, None
+    parser = argparse.ArgumentParser(description="VidSrcExtractor Command Line Interface")
+    parser.add_argument("--source", dest="source_name", choices=SUPPORTED_SOURCES,
+                        help="Specify the source name") 
+    parser.add_argument("--fetch-subtitles", dest="fetch_subtitles", action="store_true",
+                        help="Specify if you want to fetch subtitles or not")
+    parser.add_argument("--default-subtitles", dest="default_subtitles", type=str,
+                        help="Specify default subtitles")
+    parser.add_argument("--media-type", dest="media_type", choices=["movie", "tv"],
+                        help="Specify media type (movie or tv)")
+    parser.add_argument("--code", dest="code", type=str,
+                        help="Specify tmdb/imdb code to watch")
+    parser.add_argument("--season", dest="season", type=str,
+                        help="Specify the season number")
+    parser.add_argument("--episode", dest="episode", type=str,
+                        help="Specify the episode number")
+    args = parser.parse_args()
 
-    if media_type == "tv":
-        se = input("Input Season Number: ")
-        ep = input("Input Episode Number: ")
+    source_name = args.source_name or questionary.select("Select Source", choices=SUPPORTED_SOURCES).ask()
+    fetch_subtitles = args.fetch_subtitles or questionary.confirm("Fetch Subtitles").ask() if source_name != "Filemoon" else None
+    vse = VidSrcExtractor(
+        source_name = source_name, # @ ctrl + F "SUPPORTED_SOURCES"
+        fetch_subtitles = fetch_subtitles,
+    )
 
-    streams, subtitles = vsc.get_vidsrc_stream("Vidplay", media_type, code, se, ep)
+    code = args.code 
+    while not code:
+        code = questionary.text("Input imdb/tmdb code").ask()
+
+    media_type = args.media_type or questionary.select("Select Media Type", choices=["Movie", "Tv"]).ask().lower()
+    se = args.season or questionary.text("Input Season Number").ask() if media_type == "tv" else None
+    ep = args.episode or questionary.text("Input Episode Number").ask() if media_type == "tv" else None
+    streams, subtitles = vse.get_streams(media_type, code, se, ep)
 
     if streams and type(streams) == list:
-        video = streams[0].get("file")
-        mpv_cmd = f"mpv --fs \"{video}\""
+        stream = streams[0]
+        if len(streams) > 1:
+            stream = questionary.select("Select Stream", choices=streams).ask()
+
+        mpv_cmd = f"mpv --fs \"{stream}\""
 
         if subtitles:
-            print(list(subtitles.keys()))
-            subs = subtitles.get(input("Select Subtitles: "))
-            if subs:
-                mpv_cmd += f" --sub-file=\"{subs}\""
+            subtitle_list = list(subtitles.keys())
+            subtitle_list.append("None")
+            
+            selection = args.default_subtitles or questionary.select("(This can be skipped by passing --default-subtitles {subtitle_language})\n  Select Subtitles...", choices=subtitle_list).ask()
+            if selection != "None":
+                mpv_cmd += f" --sub-file=\"{subtitles.get(selection)}\""
+
         os.system(mpv_cmd)
