@@ -45,7 +45,7 @@ Will release soon™️, stay posted!
 ### TODO
 - [ ] Finish AST parser string reconstructor 
 - [ ] Add QoL features like autoplay 
-- [ ] Add basic search functionality
+- [x] Add basic search functionality
 
 ### Note
 This is purely intended as proof of concept, the distribution of program is intended for educational purposes ONLY. 
