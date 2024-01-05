@@ -1,8 +1,17 @@
 import base64
+import subprocess
 from typing import Union
 
 # Helper methods
 class Utilities:
+    @staticmethod
+    def check_mpv_exists() -> bool:
+        try:
+            subprocess.run(['mpv', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
     @staticmethod
     def decode_data(key: str, data: Union[bytearray, str]) -> bytearray:
         key_bytes = bytes(key, 'utf-8')
@@ -28,7 +37,7 @@ class Utilities:
             elif isinstance(data[index], int):
                 decoded[index] = data[index] ^ s[t]
             else:
-                raise ValueError("Unsupported data type in the input")
+                raise RC4DecodeError("Unsupported data type in the input")
 
         return decoded
     
@@ -61,12 +70,21 @@ class Utilities:
         standardized_input = s.replace('_', '/').replace('-', '+')
         binary_data = base64.b64decode(standardized_input)
         return bytearray(binary_data)
-
+    
+    
 # Errors
 class VidSrcError(Exception):
     '''Base Error'''
     pass
 
-class CouldntFetchKeysError(VidSrcError):
+class CouldntFetchKeys(VidSrcError):
     '''Failed to fetch decryption keys for vidplay'''
+    pass
+
+class RC4DecodeError(VidSrcError):
+    '''Failed to decode RC4 data (current design choices == only ever ValueError)'''
+    pass
+
+class NoSourcesFound(VidSrcError):
+    '''Failed to find any media sources @ the provided source'''
     pass
