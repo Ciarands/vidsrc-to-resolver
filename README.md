@@ -5,6 +5,9 @@
 - [ ] Finish AST parser string reconstructor 
 - [ ] Add QoL features like autoplay 
 - [x] Add basic search functionality
+- [ ] Add download functionality
+- [ ] Add more configurability (allow users to pass their own subtitles url/file, ect)
+- [ ] Add settings file and allow users to save their prefrences e.g default-subtitles
 - [ ] Save user media data + watch time
 
 ---
