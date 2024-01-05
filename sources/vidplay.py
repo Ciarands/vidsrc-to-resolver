@@ -19,11 +19,15 @@ class VidplayExtractor:
     @staticmethod
     def get_vidplay_subtitles(url_data: str) -> Dict:
         subtitles_url = re.search(r"info=([^&]+)", url_data)
+        if not subtitles_url:
+            return {}
+        
         subtitles_url_formatted = unquote(subtitles_url.group(1))
         req = requests.get(subtitles_url_formatted)
         
         if req.status_code == 200:
             return {subtitle.get("label"): subtitle.get("file") for subtitle in req.json()}
+        
         return {}
 
     @staticmethod
