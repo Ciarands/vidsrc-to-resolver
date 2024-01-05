@@ -13,7 +13,7 @@ class FilemoonExtractor:
     def resolve_source(self, url: str, **kwargs: Dict[str, Any]) -> Tuple[Optional[str], None]:
         req = requests.get(url)
         if req.status_code != 200:
-            print(f"[Filemoon] Failed to retrieve media, status code: {req.status_code}...")
+            print(f"[FilemoonExtractor] Failed to retrieve media, status code: {req.status_code}...")
             return None, None
 
         matches = re.search(r"eval\(function\(p,a,c,k,e,d\).*?\}\('(.*?)'\.split", req.text)
