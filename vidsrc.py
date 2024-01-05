@@ -114,7 +114,7 @@ class VidSrcExtractor:
                 continue
             
             data_type, data_id = url[1:].split("/")
-            results.update({title: {"media_type": data_type, "tmdb_id": data_id}})
+            results.update({f"{title} {data_id}": {"media_type": data_type, "tmdb_id": data_id}})
 
         return results
 
