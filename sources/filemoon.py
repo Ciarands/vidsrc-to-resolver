@@ -17,8 +17,11 @@ class FilemoonExtractor:
             return None, None
 
         matches = re.search(r"eval\(function\(p,a,c,k,e,d\).*?\}\('(.*?)'\.split", req.text)
+        if not matches:
+            print("[FilemoonExtractor] Failed to retrieve media, could not find eval function...")
+            return None, None
+        
         DE_packer_args = re.search(r"^(.*?}\);)\',(.*?),(.*?),'(.*?)$", matches.group(1))
-
         processed_matches = list(DE_packer_args.groups())
         processed_matches[1] = int(processed_matches[1])
         processed_matches[2] = int(processed_matches[2])
@@ -27,4 +30,7 @@ class FilemoonExtractor:
         unpacked = self.unpack(*processed_matches)
         hls_urls = re.findall(r"\{file:\"([^\"]*)\"\}", unpacked)
 
+        # hls_filename = hls_urls[0].split("?")[0].rsplit("/")[-1]
+        # mp4_url = hls_urls[0].replace("hls2", "download") #.replace(hls_filename, "media") # filename is arbitrary
+        
         return hls_urls, None
