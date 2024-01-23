@@ -1,11 +1,17 @@
 # Vidsrc.to Resolver/CLI
 *A simple cli for fetching content from vidsrc.to by resolving m3u8's from common sources used by the site.*
 
+### Info
+*While I plan on maintaining this for the foreseeable future, please note that I do intend to eventually archive this and merge all the work here into a package consisting of all other sources I have previously worked on.*
+
+*Consider this a usable public dev build, I wont be pushing any breaking changes.*
+
 ### TODO
 - [ ] Finish AST parser string reconstructor 
 - [ ] Add QoL features like autoplay 
 - [x] Add basic search functionality
 - [ ] Add download functionality
+- [ ] Allow users to customise certain output, such as the tmdb response string(s)
 - [ ] Add more configurability (allow users to pass their own subtitles url/file, ect)
 - [ ] Add settings file and allow users to save their prefrences e.g default-subtitles
 - [ ] Save user media data + watch time
