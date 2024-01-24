@@ -7,7 +7,7 @@
 *Consider this a usable public dev build, I wont be pushing any breaking changes.*
 
 ### TODO
-- [ ] Finish AST parser string reconstructor 
+- [ ] ~~Finish AST parser string reconstructor~~
 - [ ] Add QoL features like autoplay 
 - [x] Add basic search functionality
 - [ ] Add download functionality
