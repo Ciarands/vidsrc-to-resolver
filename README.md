@@ -1,13 +1,16 @@
 # Vidsrc.to Resolver/CLI
 *A simple cli for fetching content from vidsrc.to by resolving m3u8's from common sources used by the site.*
 
+---
+
 ### Info
 *While I plan on maintaining this for the foreseeable future, please note that I do intend to eventually archive this and merge all the work here into a package consisting of all other sources I have previously worked on.*
 
 *Consider this a usable public dev build, I wont be pushing any breaking changes.*
 
+---
+
 ### TODO
-- [ ] ~~Finish AST parser string reconstructor~~
 - [ ] Add QoL features like autoplay 
 - [x] Add basic search functionality
 - [ ] Add download functionality
@@ -54,15 +57,6 @@ Run the file
 ```python3 vidsrc.py --help```
 
 ---
-
-**[29-12-2023]** AST Parser / Obfuscator.io string reconstructor
-
-I am currently working on an AST parser based solution, with a custom obfuscator.io string reconstructor (no slow dependencies like synchrony or webcrack), which will extract the vidsrc.to keys at runtime (fast 💪).
-I have a fair bit of work to do yet, but heres a sneak peek at the unoptimized first iteration on my slow laptop.
-
-Will release soon™️, stay posted!
-
-https://github.com/Ciarands/vidsrc-to-resolver/assets/74070993/ba277257-a043-4ede-b273-92bcc6ca7663
 
 ### Video [31/12/2023]
 
