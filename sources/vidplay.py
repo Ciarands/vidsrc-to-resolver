@@ -1,13 +1,13 @@
 import re
+import json
 import base64
 import requests
-
 from urllib.parse import unquote
 from typing import Optional, Tuple, Dict, List
 from utils import Utilities, CouldntFetchKeys
 
 class VidplayExtractor:
-    KEY_URL : str = "https://raw.githubusercontent.com/Ciarands/vidsrc-keys/main/keys.json"
+    KEY_URL : str = "https://github.com/Ciarands/vidsrc-keys/blob/main/keys.json"
 
     @staticmethod
     def get_futoken(key: str, url: str, provider_url: str) -> str:
@@ -31,13 +31,17 @@ class VidplayExtractor:
         return {}
 
     @staticmethod
-    def encode_id(key_url: str, v_id: str) -> str:
-        fetch_keys = requests.get(key_url)
+    def encode_id(v_id: str) -> str:
+        req = requests.get(VidplayExtractor.KEY_URL)
 
-        if fetch_keys.status_code != 200:
+        if req.status_code != 200:
             raise CouldntFetchKeys("Failed to fetch decryption keys!")
+        
+        matches = re.search(r"\"rawLines\":\s*\[\"(.+)\"\]", req.text)
+        if not matches:
+            raise CouldntFetchKeys("Failed to extract rawLines from keys page!")
 
-        key1, key2 = fetch_keys.json()
+        key1, key2 = json.loads(matches.group(1).replace("\\", ""))
         decoded_id = Utilities.decode_data(key1, v_id)
         encoded_result = Utilities.decode_data(key2, decoded_id)
         
@@ -53,7 +57,7 @@ class VidplayExtractor:
         if fetch_subtitles:
             subtitles = self.get_vidplay_subtitles(url_data[1])
 
-        key = self.encode_id(self.KEY_URL, url_data[0].split("/e/")[-1])
+        key = self.encode_id(url_data[0].split("/e/")[-1])
         futoken = self.get_futoken(key, url, provider_url)
         
         req = requests.get(f"{provider_url}/mediainfo/{futoken}?{url_data[1]}&autostart=true", headers={"Referer": url})
