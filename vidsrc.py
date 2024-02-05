@@ -26,13 +26,13 @@ class VidSrcExtractor:
 
     def decrypt_source_url(self, source_url: str) -> str:
         encoded = Utilities.decode_base64_url_safe(source_url)
-        decoded = Utilities.decode_data(self.DEFAULT_KEY, encoded)
+        decoded = Utilities.decode_data(VidSrcExtractor.DEFAULT_KEY, encoded)
         decoded_text = decoded.decode('utf-8')
 
         return unquote(decoded_text)
 
     def get_source_url(self, source_id: str) -> str:
-        req = requests.get(f"{self.BASE_URL}/ajax/embed/source/{source_id}")
+        req = requests.get(f"{VidSrcExtractor.BASE_URL}/ajax/embed/source/{source_id}")
         if req.status_code != 200:
             error_msg = f"Couldnt fetch {req.url}, status code: {req.status_code}..."
             raise VidSrcError(error_msg)
@@ -42,7 +42,7 @@ class VidSrcExtractor:
         return self.decrypt_source_url(encrypted_source_url)
 
     def get_sources(self, data_id: str) -> Dict:
-        req = requests.get(f"{self.BASE_URL}/ajax/embed/episode/{data_id}/sources")
+        req = requests.get(f"{VidSrcExtractor.BASE_URL}/ajax/embed/episode/{data_id}/sources")
         if req.status_code != 200:
             error_msg = f"Couldnt fetch {req.url}, status code: {req.status_code}..."
             raise VidSrcError(error_msg)
@@ -51,7 +51,7 @@ class VidSrcExtractor:
         return {video.get("title"): video.get("id") for video in data.get("result")}
 
     def get_streams(self, media_type: str, media_id: str, season: Optional[str], episode: Optional[str]) -> Tuple[Optional[List], Optional[Dict]]:
-        url = f"{self.BASE_URL}/embed/{media_type}/{media_id}"
+        url = f"{VidSrcExtractor.BASE_URL}/embed/{media_type}/{media_id}"
         if season and episode:
             url += f"/{season}/{episode}"
 
@@ -80,7 +80,7 @@ class VidSrcExtractor:
             print(f"[>] Fetching source for \"{self.source_name}\"...")
 
             extractor = VidplayExtractor()
-            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=self.PROVIDER_URL)
+            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
         
         elif "filemoon" in source_url:
             print(f"[>] Fetching source for \"{self.source_name}\"...")
@@ -89,14 +89,14 @@ class VidSrcExtractor:
                 print(f"[VidSrcExtractor] \"{self.source_name}\" doesnt provide subtitles...")
 
             extractor = FilemoonExtractor()
-            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=self.PROVIDER_URL)
+            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
         
         else:
             print(f"[VidSrcExtractor] Sorry, this doesnt currently support \"{self.source_name}\" :(\n[VidSrcExtractor] (if you create an issue and ask really nicely ill maybe look into reversing it though)...")
             return None, None
         
     def query_tmdb(self, query: str) -> Dict:
-        req = requests.get(f"{self.TMDB_BASE_URL}/search", params={'query': query.replace(" ", "+").lower()}, headers={'user-agent': self.USER_AGENT})
+        req = requests.get(f"{VidSrcExtractor.TMDB_BASE_URL}/search", params={'query': query.replace(" ", "+").lower()}, headers={'user-agent': VidSrcExtractor.USER_AGENT})
         soup = BeautifulSoup(req.text, "html.parser")
         results = {}
 
