@@ -67,5 +67,4 @@ https://github.com/Ciarands/vidsrc-to-resolver/assets/74070993/2dcf8e1d-0011-424
 ### Note
 This is purely intended as proof of concept, the distribution of program is intended for educational purposes ONLY. 
 
-### Contact
-discord - `ciaran_ds`
+#### [Join the discord for support](https://discord.gg/z2r8e8neQ7)
