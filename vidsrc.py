@@ -76,13 +76,13 @@ class VidSrcExtractor:
             return None, None
 
         source_url = self.get_source_url(source)
-        if "vidplay" in source_url:
+        if "55a0716b8c" in source_url:
             print(f"[>] Fetching source for \"{self.source_name}\"...")
 
             extractor = VidplayExtractor()
             return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
         
-        elif "filemoon" in source_url:
+        elif "keraproxy" in source_url:
             print(f"[>] Fetching source for \"{self.source_name}\"...")
 
             if self.fetch_subtitles: 
