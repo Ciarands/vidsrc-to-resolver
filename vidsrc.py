@@ -11,7 +11,7 @@ from sources.vidplay import VidplayExtractor
 from sources.filemoon import FilemoonExtractor
 from utils import Utilities, VidSrcError, NoSourcesFound
 
-SUPPORTED_SOURCES = ["Vidplay", "Filemoon"]
+SUPPORTED_SOURCES = ["Vidplay"]
 
 class VidSrcExtractor:
     BASE_URL : str = "https://vidsrc.to"
@@ -76,20 +76,20 @@ class VidSrcExtractor:
             return None, None
 
         source_url = self.get_source_url(source)
-        if "55a0716b8c" in source_url:
+        if "vidplay" in source_url:
             print(f"[>] Fetching source for \"{self.source_name}\"...")
 
             extractor = VidplayExtractor()
             return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
         
-        elif "keraproxy" in source_url:
-            print(f"[>] Fetching source for \"{self.source_name}\"...")
+        # elif "keraproxy" in source_url:
+        #     print(f"[>] Fetching source for \"{self.source_name}\"...")
 
-            if self.fetch_subtitles: 
-                print(f"[VidSrcExtractor] \"{self.source_name}\" doesnt provide subtitles...")
+        #     if self.fetch_subtitles: 
+        #         print(f"[VidSrcExtractor] \"{self.source_name}\" doesnt provide subtitles...")
 
-            extractor = FilemoonExtractor()
-            return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
+        #     extractor = FilemoonExtractor()
+        #     return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
         
         else:
             print(f"[VidSrcExtractor] Sorry, this doesnt currently support \"{self.source_name}\" :(\n[VidSrcExtractor] (if you create an issue and ask really nicely ill maybe look into reversing it though)...")
