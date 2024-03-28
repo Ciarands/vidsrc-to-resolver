@@ -76,7 +76,6 @@ class VidSrcExtractor:
             return None, None
 
         source_url = self.get_source_url(source)
-        print(source_url)
 
         if self.source_name == "Vidplay":
             print(f"[>] Fetching source for \"{self.source_name}\"...")
