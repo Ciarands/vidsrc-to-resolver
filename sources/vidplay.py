@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Dict, List
 from utils import Utilities, CouldntFetchKeys
 
 class VidplayExtractor:
-    KEY_URL : str = "https://github.com/Ciarands/vidsrc-keys/blob/main/keys.json"
+    KEY_URL = "https://github.com/Ciarands/vidsrc-keys/blob/main/keys.json"
 
     @staticmethod
     def get_futoken(key: str, url: str, provider_url: str) -> str:
@@ -50,7 +50,7 @@ class VidplayExtractor:
 
         return decoded_result.replace("/", "_")
     
-    def resolve_source(self, url: str, fetch_subtitles: bool, provider_url: str) -> Tuple[Optional[List], Optional[Dict]]:
+    def resolve_source(self, url: str, fetch_subtitles: bool, provider_url: str) -> Tuple[Optional[List], Optional[Dict], Optional[str]]:
         url_data = url.split("?")
 
         subtitles = {}
@@ -63,11 +63,11 @@ class VidplayExtractor:
         req = requests.get(f"{provider_url}/mediainfo/{futoken}?{url_data[1]}&autostart=true", headers={"Referer": url})
         if req.status_code != 200:
             print(f"[VidplayExtractor] Failed to retrieve media, status code: {req.status_code}...")
-            return None, None
+            return None, None, None
 
         req_data = req.json()
         if (req_data.get("result")) and (type(req_data.get("result")) == dict):
             sources = req_data.get("result").get("sources")
-            return [value.get("file") for value in sources], subtitles
+            return [value.get("file") for value in sources], subtitles, url
         
-        return None, None
+        return None, None, None
