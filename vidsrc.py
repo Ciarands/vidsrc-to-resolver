@@ -14,11 +14,11 @@ from utils import Utilities, VidSrcError, NoSourcesFound
 SUPPORTED_SOURCES = ["Vidplay", "Filemoon"]
 
 class VidSrcExtractor:
-    BASE_URL : str = "https://vidsrc.to"
-    DEFAULT_KEY : str = "8z5Ag5wgagfsOuhz"
-    PROVIDER_URL : str = "https://vidplay.online" # vidplay.site / vidplay.online / vidplay.lol
-    TMDB_BASE_URL : str = "https://www.themoviedb.org"
-    USER_AGENT : str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
+    BASE_URL = "https://vidsrc.to"
+    DEFAULT_KEY = "WXrUARXb1aDLaZjI"
+    PROVIDER_URL = "https://vidplay.online" # vidplay.site / vidplay.online / vidplay.lol
+    TMDB_BASE_URL = "https://www.themoviedb.org"
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
 
     def __init__(self, **kwargs) -> None:
         self.source_name = kwargs.get("source_name")
@@ -50,7 +50,7 @@ class VidSrcExtractor:
         data = req.json()
         return {video.get("title"): video.get("id") for video in data.get("result")}
 
-    def get_streams(self, media_type: str, media_id: str, season: Optional[str], episode: Optional[str]) -> Tuple[Optional[List], Optional[Dict]]:
+    def get_streams(self, media_type: str, media_id: str, season: Optional[str], episode: Optional[str]) -> Tuple[Optional[List], Optional[Dict], Optional[str]]:
         url = f"{VidSrcExtractor.BASE_URL}/embed/{media_type}/{media_id}"
         if season and episode:
             url += f"/{season}/{episode}"
@@ -59,13 +59,13 @@ class VidSrcExtractor:
         req = requests.get(url)
         if req.status_code != 200:
             print(f"[VidSrcExtractor] Couldnt fetch \"{req.url}\", status code: {req.status_code}\n[VidSrcExtractor] \"{self.source_name}\" likely doesnt have the requested media...")
-            return None, None
+            return None, None, None
 
         soup = BeautifulSoup(req.text, "html.parser")
         sources_code = soup.find('a', {'data-id': True})
         if not sources_code:
             print("[VidSrcExtractor] Could not fetch data-id, this could be due to an invalid imdb/tmdb code...")
-            return None, None
+            return None, None, None
 
         sources_code = sources_code.get("data-id")
         sources = self.get_sources(sources_code)
@@ -73,7 +73,7 @@ class VidSrcExtractor:
         if not source:
             available_sources = ", ".join(list(sources.keys()))
             print(f"[VidSrcExtractor] No source found for \"{self.source_name}\"\nAvailable Sources: {available_sources}")
-            return None, None
+            return None, None, None
 
         source_url = self.get_source_url(source)
 
@@ -94,7 +94,7 @@ class VidSrcExtractor:
         
         else:
             print(f"[VidSrcExtractor] Sorry, this doesnt currently support \"{self.source_name}\" :(\n[VidSrcExtractor] (if you create an issue and ask really nicely ill maybe look into reversing it though)...")
-            return None, None
+            return None, None, None
         
     def query_tmdb(self, query: str) -> Dict:
         req = requests.get(f"{VidSrcExtractor.TMDB_BASE_URL}/search", params={'query': query.replace(" ", "+").lower()}, headers={'user-agent': VidSrcExtractor.USER_AGENT})
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     se = args.season or questionary.text("Input Season Number").unsafe_ask() if media_type == "tv" else None
     ep = args.episode or questionary.text("Input Episode Number").unsafe_ask() if media_type == "tv" else None    
 
-    streams, subtitles = vse.get_streams(media_type, media_id, se, ep)
+    streams, subtitles, source_url = vse.get_streams(media_type, media_id, se, ep)
     index, fetch_attempts = (SUPPORTED_SOURCES.index(vse.source_name), 0)
 
     while not streams:
@@ -228,4 +228,5 @@ if __name__ == "__main__":
         if selection != "None":
             mpv_cmd += f"--sub-file=\"{subtitles.get(selection)}\" "
 
+    mpv_cmd += f"--http-header-fields=\"Referer: {source_url}\""
     os.system(mpv_cmd)
