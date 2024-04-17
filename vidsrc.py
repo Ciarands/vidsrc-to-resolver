@@ -117,6 +117,8 @@ class VidSrcExtractor:
                 continue
             
             result_type, result_id = url[1:].split("/")
+            if "-" in result_id:
+                result_id = result_id.partition("-")[0]
             results.update({f"{index}. {title} ({release_date})": {"media_type": result_type, "tmdb_id": result_id}})
 
         return results
