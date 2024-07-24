@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote
 from typing import Optional, Tuple, Dict, List
 
-from sources.vidplay import F2CloudExtractor
+from sources.f2cloud import F2CloudExtractor
 from sources.filemoon import FilemoonExtractor
 from utils import Utilities, VidSrcError, NoSourcesFound
 
