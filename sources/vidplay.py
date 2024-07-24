@@ -1,16 +1,21 @@
-from enum import Enum
 import re
 import json
 import base64
 import requests
 from urllib.parse import unquote
 from typing import Optional, Tuple, Dict, List
-from utils import Utilities, CouldntFetchKeys
+from utils import CouldntFetchKeys, Utilities
 
-class VidplayExtractor:
+class F2CloudExtractor:
     KEY_URL = "https://github.com/Ciarands/vidsrc-keys/blob/main/keys.json"
+    KEYS = {}
 
-    
+    def __init__(self, KEYS={}):
+        if KEYS == {}:
+            self.KEYS = F2CloudExtractor.get_keys()
+        else:
+            self.KEYS = KEYS
+
     @staticmethod
     def get_vidplay_subtitles(url_data: str) -> Dict:
         subtitles_url = re.search(r"info=([^&]+)", url_data)
@@ -26,33 +31,8 @@ class VidplayExtractor:
         return {}
 
     @staticmethod
-    def encode(key: str, v_id: str) -> str:
-        decoded_id = Utilities.decode_data(key, v_id)
-        
-        encoded_base64 = base64.b64encode(decoded_id)
-        decoded_result = encoded_base64.decode("utf-8")
-
-        return decoded_result.replace("/", "_").replace("+", "-")
-
-
-    @staticmethod
-    def encode_id(v_id: str) -> str:
-        key = VidplayExtractor.get_encryption_key()
-        return VidplayExtractor.encode(key, v_id)
-
-    @staticmethod
-    def encode_embed_id(v_id: str) -> str:
-        key = VidplayExtractor.get_embed_encryption_key()
-        return VidplayExtractor.encode(key, v_id)
-
-    @staticmethod
-    def encode_h(v_id: str) -> str:
-        key = VidplayExtractor.get_h_encryption_key()
-        return VidplayExtractor.encode(key, v_id)
-
-    @staticmethod
-    def get_key(enc: bool, num: int) -> str:
-        req = requests.get(VidplayExtractor.KEY_URL)
+    def get_keys() -> dict:
+        req = requests.get(F2CloudExtractor.KEY_URL)
 
         if req.status_code != 200:
             raise CouldntFetchKeys("Failed to fetch decryption keys!")
@@ -61,37 +41,45 @@ class VidplayExtractor:
         if not matches:
             raise CouldntFetchKeys("Failed to extract rawLines from keys page!")
 
-        keys = json.loads(matches.group(1).replace("\\", ""))
+        return json.loads(matches.group(1).replace("\\", ""))
+
+    @staticmethod
+    def get_key(keys, enc: bool, num: int) -> str:
         return keys["encrypt" if enc else "decrypt"][num]
 
-    @staticmethod
-    def get_encryption_key() -> str:
-        return VidplayExtractor.get_key(True, 0)
+    def get_embed_decryption_key(self) -> str:
+        return F2CloudExtractor.get_key(self.KEYS, False, 1)
+
+    def get_embed_encryption_key(self) -> str:
+        return F2CloudExtractor.get_key(self.KEYS, True, 1)
+
+    def get_h_encryption_key(self) -> str:
+        return F2CloudExtractor.get_key(self.KEYS, True, 2)
 
     @staticmethod
-    def get_embed_encryption_key() -> str:
-        return VidplayExtractor.get_key(True, 1)
+    def encode(key: str, v_id: str) -> str:
+        decoded_id = Utilities.decode_data(key, v_id)
+        
+        encoded_base64 = base64.b64encode(decoded_id)
+        decoded_result = encoded_base64.decode("utf-8")
 
-    @staticmethod
-    def get_h_encryption_key() -> str:
-        return VidplayExtractor.get_key(True, 2)
+        return decoded_result.replace("/", "_").replace("+", "-")
 
-    @staticmethod
-    def get_decryption_key() -> str:
-        return VidplayExtractor.get_key(False, 0)
+    def encode_embed_id(self, v_id: str) -> str:
+        key = self.get_embed_encryption_key()
+        return F2CloudExtractor.encode(key, v_id)
 
-    @staticmethod
-    def get_embed_decryption_key() -> str:
-        return VidplayExtractor.get_key(False, 1)
+    def encode_h(self,v_id: str) -> str:
+        key = self.get_h_encryption_key()
+        return F2CloudExtractor.encode(key, v_id)
 
-    @staticmethod
-    def decode_embed(source_url: str) -> str:
+    def decode_embed(self,source_url: str) -> str:
         encoded = Utilities.decode_base64_url_safe(source_url)
-        decoded = Utilities.decode_data(VidplayExtractor.get_embed_decryption_key(), encoded)
+        decoded = Utilities.decode_data(self.get_embed_decryption_key(), encoded)
         decoded_text = decoded.decode('utf-8')
 
         return unquote(decoded_text)
-    
+
     def resolve_source(self, url: str, fetch_subtitles: bool, provider_url: str) -> Tuple[Optional[List], Optional[Dict], Optional[str]]:
         url_data = url.split("?")
 
@@ -109,7 +97,7 @@ class VidplayExtractor:
 
         req_data = req.json()
         try:
-            req_data = json.loads(VidplayExtractor.decode_embed(req_data.get("result")))
+            req_data = json.loads(self.decode_embed(req_data.get("result")))
             if (type(req_data) == dict) and req_data.get("sources") != None:
                 return [value.get("file") for value in req_data.get("sources")], subtitles, url
         except ValueError:

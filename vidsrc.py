@@ -7,8 +7,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote
 from typing import Optional, Tuple, Dict, List
 
-from sources import vidplay
-from sources.vidplay import VidplayExtractor
+from sources.vidplay import F2CloudExtractor
 from sources.filemoon import FilemoonExtractor
 from utils import Utilities, VidSrcError, NoSourcesFound
 
@@ -16,37 +15,46 @@ SUPPORTED_SOURCES = ["F2Cloud", "Filemoon"]
 
 class VidSrcExtractor:
     BASE_URL = "https://vidsrc.to"
-    DEFAULT_KEY = "wnRQe3OZ1vMcD1ML"
-    # PROVIDER_URL = "https://vidplay.online" # vidplay.site / vidplay.online / vidplay.lol
     PROVIDER_URL = "https://vid2v11.site" # vidplay.site / vidplay.online / vidplay.lol
     TMDB_BASE_URL = "https://www.themoviedb.org"
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
+    KEYS = {}
 
     def __init__(self, **kwargs) -> None:
         self.source_name = kwargs.get("source_name")
         self.fetch_subtitles = kwargs.get("fetch_subtitles")
+        self.KEYS = F2CloudExtractor.get_keys()
 
-    @staticmethod
-    def decrypt_source_url(source_url: str) -> str:
+    def get_encryption_key(self) -> str:
+        return F2CloudExtractor.get_key(self.KEYS, True, 0)
+
+    def get_decryption_key(self) -> str:
+        return F2CloudExtractor.get_key(self.KEYS, False, 0)
+
+    def encode_id(self, v_id: str) -> str:
+        key = self.get_encryption_key()
+        return F2CloudExtractor.encode(key, v_id)
+
+    def decrypt_source_url(self, source_url: str) -> str:
         encoded = Utilities.decode_base64_url_safe(source_url)
-        decoded = Utilities.decode_data(VidplayExtractor.get_decryption_key(), encoded)
+        decoded = Utilities.decode_data(self.get_decryption_key(), encoded)
         decoded_text = decoded.decode('utf-8')
 
         return unquote(decoded_text)
 
-    @staticmethod
-    def get_source_url(source_id: str) -> str:
-        req = requests.get(f"{VidSrcExtractor.BASE_URL}/ajax/embed/source/{source_id}?token={VidplayExtractor.encode_id(source_id)}")
+    def get_source_url(self, source_id: str) -> str:
+        req = requests.get(f"{VidSrcExtractor.BASE_URL}/ajax/embed/source/{source_id}?token={self.encode_id(source_id)}")
         if req.status_code != 200:
             error_msg = f"Couldnt fetch {req.url}, status code: {req.status_code}..."
             raise VidSrcError(error_msg)
 
         data = req.json()
         encrypted_source_url = data.get("result", {}).get("url")
-        return VidSrcExtractor.decrypt_source_url(encrypted_source_url)
+        return self.decrypt_source_url(encrypted_source_url)
+
 
     def get_sources(self, data_id: str) -> Dict:
-        req = requests.get(f"{VidSrcExtractor.BASE_URL}/ajax/embed/episode/{data_id}/sources?token={VidplayExtractor.encode_id(data_id)}")
+        req = requests.get(f"{VidSrcExtractor.BASE_URL}/ajax/embed/episode/{data_id}/sources?token={self.encode_id(data_id)}")
         if req.status_code != 200:
             error_msg = f"Couldnt fetch {req.url}, status code: {req.status_code}..."
             raise VidSrcError(error_msg)
@@ -84,7 +92,7 @@ class VidSrcExtractor:
         if self.source_name == "F2Cloud":
             print(f"[>] Fetching source for \"{self.source_name}\"...")
 
-            extractor = VidplayExtractor()
+            extractor = F2CloudExtractor(self.KEYS)
             return extractor.resolve_source(url=source_url, fetch_subtitles=self.fetch_subtitles, provider_url=VidSrcExtractor.PROVIDER_URL)
         
         elif self.source_name == "Filemoon":
