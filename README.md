@@ -1,3 +1,6 @@
+# Looks like vidsrc.to is dead
+Since the domains are dead this project will be archived for the forseeable future.
+
 # Vidsrc.to Resolver/CLI
 *A simple cli for fetching content from vidsrc.to by resolving m3u8's from common sources used by the site.*
 
